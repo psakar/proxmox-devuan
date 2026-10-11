@@ -1769,7 +1769,8 @@ workflow), builds incrementally and publishes the repository as a release
 
 - **What gets built** (input `steps`):
   - `auto` (default): the steps whose source repositories' commits differ
-    from the last release's `SOURCES`, or that it doesn't list, plus
+    from the last release's `SOURCES`, that it doesn't list, or whose
+    recorded version isn't in the repository's `Packages`, plus
     `proxmox-default-kernel` (Proxmox's current kernel, downloaded). Which
     repositories a step is built from: `build.sh --sources <step>` (e.g.
     libpve-rs-perl also from proxmox-rs, proxmox-ve-rs and perlmod).
@@ -1832,7 +1833,10 @@ shred -u signing-subkey.asc
 ```
 
 **The first release from the build machine** (instead of a full build on
-GitHub): after `build.sh`, with the key on the build machine:
+GitHub): after `build.sh`, with the key on the build machine. Only on the
+machine whose `repo/` holds the builds of the clones' current commits:
+`record` takes the versions and commits from the clones, not from the
+packages.
 
 ```
 ./select-steps.sh record repo/SOURCES $(./build.sh --list)

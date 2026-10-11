@@ -7,7 +7,8 @@
 # Usage:
 #   select-steps.sh select <what> [<manifest>]
 #     <what>: 'auto'  the steps whose source repositories' commits differ from
-#                     the manifest's, or that it doesn't list, plus
+#                     the manifest's, that it doesn't list, or whose recorded
+#                     version isn't in the repository (repo/Packages), plus
 #                     proxmox-default-kernel (Proxmox's current kernel, only
 #                     downloaded)
 #             'all'   all steps
@@ -91,6 +92,13 @@ select_steps() { # <what> [<manifest>]
                     continue
                 fi
                 old_version=$(awk '{print $2}' <<<"$line")
+                # the manifest is only right with its packages: e.g. a
+                # repository packed from a machine with older builds
+                if ! grep -qxF "Version: $old_version" "$R/Packages" 2>/dev/null; then
+                    echo "$step: $old_version not in the repository" >&2
+                    selected+=("$step")
+                    continue
+                fi
                 for repo in $(sources "$step"); do
                     commit=$(git -C "$BASE/$repo" rev-parse HEAD)
                     old=$(tr ' ' '\n' <<<"$line" | sed -n "s/^$repo=//p")
