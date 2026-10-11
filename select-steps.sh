@@ -32,9 +32,10 @@ R=$BASE/repo
 mapfile -t STEPS < <("$BUILD" --list)
 
 warn() {
-    # a GitHub Actions annotation in the workflow, plain otherwise
+    # a GitHub Actions annotation in the workflow (read from stderr too, stdout
+    # is the result), plain otherwise
     if [ "${GITHUB_ACTIONS:-}" = true ]; then
-        echo "::warning::$*"
+        echo "::warning::$*" >&2
     else
         echo "WARNING: $*" >&2
     fi
