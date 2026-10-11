@@ -59,6 +59,15 @@ declare -A UPSTREAM_URL=(
 declare -A BASE_REF=(
     [pve-qemu]=7fccdcf
 )
+# What to build from, for reproducible builds: a commit, tag or branch, checked
+# out after cloning instead of the default (the fork's $BRANCH, or Proxmox's
+# master). An existing clone is kept, with a warning if it's elsewhere.
+# perlmod and proxmox-ve-rs: what libpve-rs-perl 0.15.3+devuan1 was built
+# against; move them together with a changelog bump of proxmox-perl-rs.
+declare -A REF=(
+    [perlmod]=3a667956097b361a9ef40fa8a2f6c0e26711b025
+    [proxmox-ve-rs]=61125e1fbf8d0f1a6385153bfd6eae36254b9b89
+)
 
 # Repositories with open plan items (init-system work still to do), cloned from
 # Proxmox's repository; ui/ holds several repositories
@@ -170,17 +179,37 @@ WARNINGS=()
 
 upstream_url() { echo "${UPSTREAM_URL[$1]:-$UPSTREAM_BASE/$1.git}"; }
 
+# Check out <name>'s REF, if any, in the fresh clone <dir>.
+checkout_ref() {
+    local name=$1 dir=$2 ref=${REF[$1]:-}
+    [ -n "$ref" ] || return 0
+    git -C "$dir" checkout -q "$ref" || { echo "ERROR: $dir: no $ref to check out (REF)" >&2; exit 1; }
+    echo "$dir: checked out $ref"
+}
+
+# Warn if the existing clone <dir> isn't at <name>'s REF.
+check_ref() {
+    local name=$1 dir=$2 ref=${REF[$1]:-} want
+    [ -n "$ref" ] || return 0
+    want=$(git -C "$dir" rev-parse -q --verify "$ref^{commit}" 2>/dev/null) || want=''
+    if [ "$(git -C "$dir" rev-parse HEAD)" != "$want" ]; then
+        warn "$dir: not at $ref (REF), kept as it is"
+    fi
+}
+
 # Clone from upstream into <dir>, keeping an existing clone.
 clone_upstream() {
     local name=$1 dir=$2 url=${3:-$(upstream_url "$1")}
     if [ -e "$dir/.git" ]; then
         echo "$dir: exists, kept"
+        check_ref "$name" "$dir"
         return
     fi
     mkdir -p "$(dirname "$dir")"
     git clone -q "$url" "$dir"
     git -C "$dir" remote rename origin upstream
     echo "$dir: cloned from $url (remote 'upstream')"
+    checkout_ref "$name" "$dir"
 }
 
 # Clone a repository with Devuan changes: the fork's feature branch, with
@@ -190,6 +219,7 @@ clone_build_repo() {
     local name=$1 fork="$FORK_BASE/$1.git"
     if [ -e "$name/.git" ]; then
         echo "$name: exists, kept ($(git -C "$name" branch --show-current))"
+        check_ref "$name" "$name"
         return
     fi
     if git ls-remote --exit-code --heads "$fork" "$BRANCH" >/dev/null 2>&1; then
@@ -197,6 +227,7 @@ clone_build_repo() {
         git -C "$name" remote add upstream "$(upstream_url "$name")"
         git -C "$name" fetch -q upstream
         echo "$name: cloned from $fork ($BRANCH), remote 'upstream' added"
+        checkout_ref "$name" "$name"
     else
         clone_upstream "$name" "$name"
         if [ -n "${BASE_REF[$name]:-}" ]; then

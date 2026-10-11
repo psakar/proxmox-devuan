@@ -1774,6 +1774,10 @@ workflow), builds incrementally and publishes the repository as a release
     `proxmox-default-kernel` (Proxmox's current kernel, downloaded). Which
     repositories a step is built from: `build.sh --sources <step>` (e.g.
     libpve-rs-perl also from proxmox-rs, proxmox-ve-rs and perlmod).
+    Clones follow the forks' feature branch or Proxmox's master, except
+    where `REF` in `prepare-build.sh` pins a commit, tag or branch:
+    perlmod and proxmox-ve-rs are pinned, so upstream commits there don't
+    rebuild libpve-rs-perl with an unchanged version.
   - `all`, or step names, comma-separated (e.g. `pve-common,qemu-server`).
   - Dependent packages aren't rebuilt: the Perl packages don't need it, and
     the C libraries built here (corosync's, lxc's) keep their ABI within a
