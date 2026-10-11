@@ -1764,8 +1764,8 @@ Each package is built after its build dependencies are installed.
 The workflow `.github/workflows/build-repo.yml` in this repository
 (`psakar/pve-devuan`), started by hand (Actions → Build repository → Run
 workflow), builds incrementally and publishes the repository as a release
-`repo-<date>-<run>` with `pve-devuan-repo-<tag>.tar.gz` and its signature
-`.tar.gz.asc`.
+`<date>-<run>` (e.g. `20261011-1929-4`) with `pve-devuan-repo-<tag>.tar.gz`
+and its signature `.tar.gz.asc`.
 
 - **What gets built** (input `steps`):
   - `auto` (default): the steps whose source repositories' commits differ
@@ -1844,8 +1844,8 @@ packages.
 
 ```
 ./select-steps.sh record repo/SOURCES $(./build.sh --list)
-./package-repo.sh --prune --sign '<subkey fingerprint>!' --tarball dist/pve-devuan-repo-repo-<date>.tar.gz
-gh release create repo-<date> dist/* --repo psakar/pve-devuan --title repo-<date> --notes 'Built on the build machine'
+./package-repo.sh --prune --sign '<subkey fingerprint>!' --tarball dist/pve-devuan-repo-<date>.tar.gz
+gh release create <date> dist/* --repo psakar/pve-devuan --title <date> --notes 'Built on the build machine'
 ```
 
 ### Installation

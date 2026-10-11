@@ -135,7 +135,7 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           sudo apt-get install -y -q apt-utils >/dev/null
-          tag=repo-$(date -u +%Y%m%d-%H%M)-${GITHUB_RUN_NUMBER}
+          tag=$(date -u +%Y%m%d-%H%M)-${GITHUB_RUN_NUMBER}
           echo "TAG=$tag" >> "$GITHUB_ENV"
           ./package-repo.sh --sign "$SIGNING_KEY!" --tarball "dist/pve-devuan-repo-$tag.tar.gz" repo
 
