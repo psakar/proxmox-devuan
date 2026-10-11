@@ -25,8 +25,8 @@ if [ "$(id -u)" = 0 ]; then
     apt-get update -q
     apt-get install -y -q --no-install-recommends sudo git ca-certificates
     # a user with that UID may exist already, e.g. podman's --userns=keep-id
-    # adds the invoking user
-    user=$(getent passwd "$BUILD_UID" | cut -d: -f1)
+    # adds the invoking user (getent fails with 2 if there's none)
+    user=$(getent passwd "$BUILD_UID" | cut -d: -f1) || true
     if [ -z "$user" ]; then
         user=build
         useradd --create-home --uid "$BUILD_UID" --shell /bin/bash "$user"
