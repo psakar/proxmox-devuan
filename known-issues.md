@@ -113,7 +113,7 @@ the packaged version changes.
 Permission denied`, because apt's `_apt` sandbox user can't enter
 `/home/saki` (mode 700). apt then reads it as root (`Get: … Packages`), so
 the index is loaded. Cosmetic; moving the repository out of the home
-directory (e.g. `/srv/pve-devuan-repo`) would avoid it.
+directory (e.g. `/srv/proxmox-devuan-repo`) would avoid it.
 
 ## Node status "unknown" (1): Devuan's default corosync.conf
 

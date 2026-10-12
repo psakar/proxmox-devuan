@@ -1,12 +1,12 @@
 ﻿# Build the Proxmox VE packages for Devuan into a signed apt repository and
-# publish it as a release (pve-devuan-repo-<tag>.tar.gz, with a detached
+# publish it as a release (proxmox-devuan-repo-<tag>.tar.gz, with a detached
 # signature). Incremental: starts from the last release's repository and
 # rebuilds only what changed (see select-steps.sh); see openrc-devuan.md,
 # "Building with GitHub Actions".
 #
 # Needs the environment 'release' with the secrets GPG_SIGNING_KEY (an armored
 # export of the signing subkey: gpg --armor --export-secret-subkeys <id>!) and
-# GPG_PASSPHRASE, and the public key in keys/pve-devuan-repo.asc.
+# GPG_PASSPHRASE, and the public key in keys/proxmox-devuan-repo.asc.
 
 name: Build repository
 
@@ -60,10 +60,10 @@ jobs:
           fi
           echo "restoring $tag"
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir dl \
-              --pattern 'pve-devuan-repo-*.tar.gz' --pattern 'pve-devuan-repo-*.tar.gz.asc'
-          gpg --dearmor < keys/pve-devuan-repo.asc > dl/keyring.gpg
-          gpgv --keyring "$PWD/dl/keyring.gpg" dl/pve-devuan-repo-*.tar.gz.asc dl/pve-devuan-repo-*.tar.gz
-          tar -xzf dl/pve-devuan-repo-*.tar.gz -C repo
+              --pattern 'proxmox-devuan-repo-*.tar.gz' --pattern 'proxmox-devuan-repo-*.tar.gz.asc'
+          gpg --dearmor < keys/proxmox-devuan-repo.asc > dl/keyring.gpg
+          gpgv --keyring "$PWD/dl/keyring.gpg" dl/proxmox-devuan-repo-*.tar.gz.asc dl/proxmox-devuan-repo-*.tar.gz
+          tar -xzf dl/proxmox-devuan-repo-*.tar.gz -C repo
           # signed again on release
           rm -rf dl repo/Release repo/InRelease repo/Release.gpg
 
@@ -137,7 +137,7 @@ jobs:
           sudo apt-get install -y -q apt-utils >/dev/null
           tag=$(date -u +%Y%m%d-%H%M)-${GITHUB_RUN_NUMBER}
           echo "TAG=$tag" >> "$GITHUB_ENV"
-          ./package-repo.sh --sign "$SIGNING_KEY!" --tarball "dist/pve-devuan-repo-$tag.tar.gz" repo
+          ./package-repo.sh --sign "$SIGNING_KEY!" --tarball "dist/proxmox-devuan-repo-$tag.tar.gz" repo
 
       - name: Publish the release
         env:

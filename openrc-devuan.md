@@ -1641,7 +1641,7 @@ The sections below describe what they do.
   `libsystemd.so.0` exports the `sd_journal_stream_fd` pve-qemu-kvm links
   (not tested with a running VM).
 - **Two local apt repositories,** both enabled in
-  `/etc/apt/sources.list.d/pve-devuan-local.list`
+  `/etc/apt/sources.list.d/proxmox-devuan-local.list`
   (`deb [trusted=yes] file:<dir> ./`):
   - `repo/`: the build's result: the packages built here (`+devuan<N>`
     versions), with `build-repo.sh`, and Proxmox's kernel packages added by
@@ -1762,9 +1762,9 @@ Each package is built after its build dependencies are installed.
 ### Building with GitHub Actions
 
 The workflow `.github/workflows/build-repo.yml` in this repository
-(`psakar/pve-devuan`), started by hand (Actions → Build repository → Run
+(`psakar/proxmox-devuan`), started by hand (Actions → Build repository → Run
 workflow), builds incrementally and publishes the repository as a release
-`<date>-<run>` (e.g. `20261011-1929-4`) with `pve-devuan-repo-<tag>.tar.gz`
+`<date>-<run>` (e.g. `20261011-1929-4`) with `proxmox-devuan-repo-<tag>.tar.gz`
 and its signature `.tar.gz.asc`.
 
 - **What gets built** (input `steps`):
@@ -1785,7 +1785,7 @@ and its signature `.tar.gz.asc`.
   - Bump the changelog with each change (`+devuan<N>`): a rebuild with an
     unchanged version gets a warning, apt wouldn't upgrade to it.
 - **How:** the `build` job restores the last release's tarball into `repo/`
-  (after checking its signature against `keys/pve-devuan-repo.asc`; input
+  (after checking its signature against `keys/proxmox-devuan-repo.asc`; input
   `fresh` starts from an empty one instead), then runs
   `ci/build-in-container.sh` in `devuan/devuan:excalibur`: a build user with
   passwordless sudo (like the build machine's `test`), `prepare-build.sh`,
@@ -1824,17 +1824,17 @@ gpg --quick-add-key <primary key fingerprint> ed25519 sign 2y
 gpg --list-keys --with-subkey-fingerprints <primary key fingerprint>
 # the new subkey: [S], note its fingerprint
 gpg --armor --export-secret-subkeys <subkey fingerprint>! > signing-subkey.asc
-gpg --armor --export <primary key fingerprint> > keys/pve-devuan-repo.asc
+gpg --armor --export <primary key fingerprint> > keys/proxmox-devuan-repo.asc
 ```
 
-`keys/pve-devuan-repo.asc` is committed. The exported subkey keeps the
+`keys/proxmox-devuan-repo.asc` is committed. The exported subkey keeps the
 key's passphrase. In the repository settings on GitHub, create the
 environment `release` (Settings → Environments; required reviewers
 optional) with two secrets, then delete the exported file:
 
 ```
-gh secret set GPG_SIGNING_KEY --env release --repo psakar/pve-devuan < signing-subkey.asc
-gh secret set GPG_PASSPHRASE --env release --repo psakar/pve-devuan
+gh secret set GPG_SIGNING_KEY --env release --repo psakar/proxmox-devuan < signing-subkey.asc
+gh secret set GPG_PASSPHRASE --env release --repo psakar/proxmox-devuan
 shred -u signing-subkey.asc
 ```
 
@@ -1846,8 +1846,8 @@ packages.
 
 ```
 ./select-steps.sh record repo/SOURCES $(./build.sh --list)
-./package-repo.sh --prune --sign '<subkey fingerprint>!' --tarball dist/pve-devuan-repo-<date>.tar.gz
-gh release create <date> dist/* --repo psakar/pve-devuan --title <date> --notes 'Built on the build machine'
+./package-repo.sh --prune --sign '<subkey fingerprint>!' --tarball dist/proxmox-devuan-repo-<date>.tar.gz
+gh release create <date> dist/* --repo psakar/proxmox-devuan --title <date> --notes 'Built on the build machine'
 ```
 
 ### Installation
@@ -1934,19 +1934,19 @@ as `_apt`), with the packages built: either a signed release from GitHub
 (see "Building with GitHub Actions"), or the build machine's `repo/`.
 
 **From a release** (signed): the public key, the tarball and its signature
-(`<tag>`: the release, e.g. from `https://github.com/psakar/pve-devuan/releases`):
+(`<tag>`: the release, e.g. from `https://github.com/psakar/proxmox-devuan/releases`):
 
 ```
 apt install gpgv
-wget https://raw.githubusercontent.com/psakar/pve-devuan/main/keys/pve-devuan-repo.asc \
-    -O /usr/share/keyrings/pve-devuan-repo.asc
-gpg --show-keys /usr/share/keyrings/pve-devuan-repo.asc   # check the fingerprint
-wget https://github.com/psakar/pve-devuan/releases/download/<tag>/pve-devuan-repo-<tag>.tar.gz \
-    https://github.com/psakar/pve-devuan/releases/download/<tag>/pve-devuan-repo-<tag>.tar.gz.asc
-gpg --dearmor < /usr/share/keyrings/pve-devuan-repo.asc > /tmp/pve-devuan-repo.gpg
-gpgv --keyring /tmp/pve-devuan-repo.gpg pve-devuan-repo-<tag>.tar.gz.asc pve-devuan-repo-<tag>.tar.gz
+wget https://raw.githubusercontent.com/psakar/proxmox-devuan/main/keys/proxmox-devuan-repo.asc \
+    -O /usr/share/keyrings/proxmox-devuan-repo.asc
+gpg --show-keys /usr/share/keyrings/proxmox-devuan-repo.asc   # check the fingerprint
+wget https://github.com/psakar/proxmox-devuan/releases/download/<tag>/proxmox-devuan-repo-<tag>.tar.gz \
+    https://github.com/psakar/proxmox-devuan/releases/download/<tag>/proxmox-devuan-repo-<tag>.tar.gz.asc
+gpg --dearmor < /usr/share/keyrings/proxmox-devuan-repo.asc > /tmp/proxmox-devuan-repo.gpg
+gpgv --keyring /tmp/proxmox-devuan-repo.gpg proxmox-devuan-repo-<tag>.tar.gz.asc proxmox-devuan-repo-<tag>.tar.gz
 mkdir -p /srv/repo
-tar -xzf pve-devuan-repo-<tag>.tar.gz -C /srv/repo
+tar -xzf proxmox-devuan-repo-<tag>.tar.gz -C /srv/repo
 chown -R _apt:root /srv/repo
 ```
 
@@ -2006,7 +2006,7 @@ signed release in `/srv/repo` (step 1), apt checks it instead: in its
 entry, replace `Trusted: yes` by
 
 ```
-Signed-By: /usr/share/keyrings/pve-devuan-repo.asc
+Signed-By: /usr/share/keyrings/proxmox-devuan-repo.asc
 ```
 
 The pins, the same as the build's private fetch configuration
@@ -2188,7 +2188,7 @@ From a newer release: download and check it as in step 1, replace
 
 ```
 rm -f /srv/repo/*
-tar -xzf pve-devuan-repo-<tag>.tar.gz -C /srv/repo
+tar -xzf proxmox-devuan-repo-<tag>.tar.gz -C /srv/repo
 chown -R _apt:root /srv/repo
 apt update && apt full-upgrade
 ```

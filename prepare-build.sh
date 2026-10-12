@@ -453,7 +453,7 @@ EOF
     "$P/update-index.sh"
 
     # the system's apt uses the local repositories (not Proxmox's)
-    printf 'deb [trusted=yes] file:%s ./\n' "$R" "$P" | sudo tee /etc/apt/sources.list.d/pve-devuan-local.list >/dev/null
+    printf 'deb [trusted=yes] file:%s ./\n' "$R" "$P" | sudo tee /etc/apt/sources.list.d/proxmox-devuan-local.list >/dev/null
 }
 
 # Proxmox's signing key, checked by its fingerprint before use

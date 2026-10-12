@@ -74,7 +74,7 @@ sign() {
     rm -f "$DIR/Release" "$DIR/InRelease" "$DIR/Release.gpg"
     tmp=$(mktemp)
     (cd "$DIR" && apt-ftparchive \
-        -o APT::FTPArchive::Release::Origin=pve-devuan \
+        -o APT::FTPArchive::Release::Origin=proxmox-devuan \
         -o APT::FTPArchive::Release::Label="Proxmox VE for Devuan" \
         -o APT::FTPArchive::Release::Codename=excalibur \
         -o APT::FTPArchive::Release::Architectures="amd64 all" \
