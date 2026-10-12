@@ -1793,8 +1793,10 @@ and its signature `.tar.gz.asc`.
   `repo/SOURCES`, and `package-repo.sh --prune`. The `release` job, in the
   GitHub environment `release` (the only one with the signing key), signs
   and packs `repo/` and creates the release, with the built steps and
-  `SOURCES` in its notes. Nothing changed (e.g. `auto` without changes and
-  no newer kernel): no release. Build logs: the run's artifact
+  `SOURCES` in its notes. Neither the packages nor `SOURCES` changed (e.g.
+  `auto` without changes and no newer kernel): no release. A rebuild with
+  identical packages but new commits still makes one, for its `SOURCES`.
+  Build logs: the run's artifact
   `build-logs`.
 - **Limits:** a hosted runner (4 CPUs) may run a job for 6 hours at most. A
   build of everything (the first run, `all`, or `fresh`) may exceed that

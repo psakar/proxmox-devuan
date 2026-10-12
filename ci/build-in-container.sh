@@ -10,7 +10,7 @@
 #   - build.sh --only <steps>, then record them in repo/SOURCES
 #   - package-repo.sh --prune: drop the older package versions
 # Results for the workflow in build/ci/: steps (built, comma-separated) and
-# changed (true if the repository's index changed).
+# changed (true if the repository's index or manifest changed).
 #
 # Environment: STEPS (default auto), BUILD_UID (the workspace owner's UID),
 # GITHUB_ACTIONS (for annotations). The workspace is /work.
@@ -49,7 +49,10 @@ mkdir -p build/ci build-logs
 
 ./prepare-build.sh 2>&1 | tee -a build-logs/prepare-build.log
 
-index() { sha256sum repo/Packages 2>/dev/null | cut -d' ' -f1; }
+# the packages (their checksums are in the index) and the manifest: a rebuild
+# with identical packages still records new commits, which must be published,
+# or the next run rebuilds the same steps again
+index() { cat repo/Packages repo/SOURCES 2>/dev/null | sha256sum | cut -d' ' -f1; }
 before=$(index)
 
 steps=$(./select-steps.sh select "${STEPS:-auto}" repo/SOURCES)
