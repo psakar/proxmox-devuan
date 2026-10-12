@@ -9,8 +9,8 @@
 #     <what>: 'auto'  the steps whose source repositories' commits differ from
 #                     the manifest's, that it doesn't list, or whose recorded
 #                     version isn't in the repository (repo/Packages), plus
-#                     proxmox-default-kernel (Proxmox's current kernel, only
-#                     downloaded)
+#                     the steps only downloading from Proxmox (its current
+#                     kernel and Secure Boot packages)
 #             'all'   all steps
 #             or step names, comma- or space-separated
 #     Prints the steps comma-separated in build order (for build.sh --only),
@@ -45,8 +45,8 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 sources() { "$BUILD" --sources "$1" | sed -n 's/^repositories: *//p'; }
 changelog() { "$BUILD" --sources "$1" | sed -n 's/^changelog: *//p'; }
 
-# the version a step's packages get: its changelog's, or for the downloaded
-# kernel the newest proxmox-default-kernel in repo/
+# the version a step's packages get: its changelog's, or for a step
+# downloading from Proxmox the newest of its package (named like it) in repo/
 step_version() { # <step>
     local cl f v best=''
     cl=$(changelog "$1")
@@ -54,7 +54,7 @@ step_version() { # <step>
         dpkg-parsechangelog -l "$BASE/$cl" -S Version
         return
     fi
-    for f in "$R"/proxmox-default-kernel_*.deb; do
+    for f in "$R/$1"_*.deb; do
         [ -e "$f" ] || continue
         v=$(dpkg-deb -f "$f" Version)
         if [ -z "$best" ] || dpkg --compare-versions "$v" gt "$best"; then best=$v; fi
@@ -83,7 +83,7 @@ select_steps() { # <what> [<manifest>]
         auto)
             for step in "${STEPS[@]}"; do
                 if [ -z "$(sources "$step")" ]; then
-                    selected+=("$step")   # proxmox-default-kernel: always fetched
+                    selected+=("$step")   # downloaded from Proxmox: always fetched
                     continue
                 fi
                 line=$(manifest_line "$manifest" "$step")

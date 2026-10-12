@@ -446,6 +446,12 @@ Pin-Priority: 600
 Package: libknet* libnozzle*
 Pin: origin download.proxmox.com
 Pin-Priority: 600
+
+# Secure Boot (proxmox-secure-boot-support): Proxmox's shim and GRUB, which
+# load its signed kernel, not Devuan's (Debian's)
+Package: shim-* grub-* grub2-common proxmox-grub
+Pin: origin download.proxmox.com
+Pin-Priority: 600
 EOF
 
     chmod +x "$R/update-index.sh" "$P/update-index.sh" "$P/fetch-proxmox.sh" "$R/build-repo.sh" "$A/apt.sh"

@@ -3,8 +3,10 @@
 # Build the Proxmox VE packages for Devuan (sysvinit/OpenRC) from the
 # repositories in the current directory, as cloned by prepare-build.sh, into the
 # local repository repo/, in dependency order (see openrc-devuan.md, Part C).
-# The last step adds Proxmox's kernel (proxmox-default-kernel and the Proxmox
-# packages it depends on), not built here but needed to install Proxmox VE.
+# Two steps add packages from Proxmox, not built here: its kernel
+# (proxmox-default-kernel and the Proxmox packages it depends on), needed to
+# install Proxmox VE, and its Secure Boot chain (proxmox-secure-boot-support:
+# shim and GRUB, which trust Proxmox's signing key, so its kernel boots).
 #
 # Building installs build dependencies, including packages built here (e.g.
 # pve-cluster, whose daemon pmxcfs needs the hostname to resolve to a
@@ -28,7 +30,8 @@
 #                  print the step's changelog (whose version its packages get)
 #                  and the repositories it's built from, e.g. to decide whether
 #                  it needs rebuilding (select-steps.sh); proxmox-default-kernel
-#                  has neither, its packages come from Proxmox
+#                  and proxmox-secure-boot-support have neither, their packages
+#                  come from Proxmox
 #
 # Versions come from the repositories' debian/changelog (+devuan<N>); bump them
 # for a rebuild with changes, apt doesn't replace a package with another one of
@@ -48,20 +51,23 @@ STEPS=(
     libpve-rs-perl pve-common pve-qemu corosync-pve pve-cluster pve-firewall pve-network
     pve-storage ifupdown2 frr ksm-control-daemon lxc pve-lxc-syscalld pve-ha-manager
     qemu-server pve-container pve-manager proxmox-firewall proxmox-default-kernel
-    proxmox-kernel-helper proxmox-ve
+    proxmox-secure-boot-support proxmox-kernel-helper proxmox-ve
 )
 
 # The repositories a step is built from, if not just the one named like it:
 # libpve-rs-perl and proxmox-firewall also use the local crates (see
-# local_crates_patch); proxmox-default-kernel is downloaded from Proxmox
+# local_crates_patch); proxmox-default-kernel and proxmox-secure-boot-support
+# are downloaded from Proxmox
 declare -A STEP_SOURCES=(
     [libpve-rs-perl]="proxmox-perl-rs proxmox-rs proxmox-ve-rs perlmod"
     [proxmox-firewall]="proxmox-firewall proxmox-rs proxmox-ve-rs"
     [proxmox-default-kernel]=""
+    [proxmox-secure-boot-support]=""
 )
 declare -A STEP_CHANGELOG=(
     [libpve-rs-perl]=proxmox-perl-rs/pve-rs/debian/changelog
     [proxmox-default-kernel]=""
+    [proxmox-secure-boot-support]=""
 )
 step_sources() { echo "${STEP_SOURCES[$1]-$1}"; }
 step_changelog() { echo "${STEP_CHANGELOG[$1]-$1/debian/changelog}"; }
@@ -370,14 +376,13 @@ step_qemu-server() { repo_build qemu-server RELAX_BUILD_DEPS=1; }
 step_pve-container() { repo_build pve-container; }
 step_pve-manager() { repo_build pve-manager BUILD_PARALLEL=1; }
 
-# Proxmox's kernel, not built here but needed to install Proxmox VE (pve-manager
-# depends on proxmox-default-kernel): the meta package and the Proxmox packages
-# it depends on (the kernel series, the kernel image, pve-firmware), downloaded
-# from Proxmox's repository with the private apt configuration into repo/, as
-# part of the build's result. The names are resolved from Proxmox's current
-# index, so a newer kernel is picked up without changes here.
-step_proxmox-default-kernel() {
-    local A=$P/proxmox-fetch dir=$BASE/build/proxmox-default-kernel lists closure pkgs=() index p cand f n=0
+# A Proxmox package and the Proxmox packages it depends on, downloaded from
+# Proxmox's repository with the private apt configuration into repo/, as part
+# of the build's result. The names are resolved from Proxmox's current index,
+# so newer versions are picked up without changes here.
+# usage: fetch_proxmox <package> [<regex: dependencies to leave out>]
+fetch_proxmox() {
+    local root=$1 skip=${2:-} A=$P/proxmox-fetch dir=$BASE/build/$1 lists closure pkgs=() index p cand f n=0
     local opts=(-o "Dir::Etc::SourceList=$A/etc/sources.list" -o "Dir::Etc::SourceParts=$A/empty"
                 -o "Dir::Etc::Preferences=$A/etc/preferences" -o "Dir::Etc::PreferencesParts=$A/empty"
                 -o "Dir::State::Lists=$A/state/lists" -o "Dir::Cache=$A/cache")
@@ -392,17 +397,18 @@ step_proxmox-default-kernel() {
     while read -r p cand; do proxmox_versions["$p $cand"]=1; done \
         < <(awk '/^Package: / { p = $2 } /^Version: / { print p, $2 }' "${lists[@]}")
     mapfile -t closure < <(apt-cache "${opts[@]}" depends --recurse --no-recommends --no-suggests \
-            --no-conflicts --no-breaks --no-replaces --no-enhances proxmox-default-kernel 2>>"$LOG" \
+            --no-conflicts --no-breaks --no-replaces --no-enhances "$root" 2>>"$LOG" \
         | grep -E '^[a-z0-9]' | sort -u)
     for p in "${closure[@]}"; do
         cand=$(apt-cache "${opts[@]}" policy "$p" 2>/dev/null | sed -n 's/^ *Candidate: //p')
+        [ -n "$skip" ] && [[ $p =~ ^($skip)$ ]] && continue
         [ -n "${proxmox_versions["$p $cand"]:-}" ] && pkgs+=("$p")
     done
-    printf '%s\n' "${pkgs[@]}" | grep -qx proxmox-default-kernel || die "proxmox-default-kernel not in Proxmox's index"
+    printf '%s\n' "${pkgs[@]}" | grep -qxF "$root" || die "$root not in Proxmox's index"
     # a kernel image is either signed or not (alternatives): only the signed
     # one, the unsigned is dropped where its -signed package is in the list
     mapfile -t pkgs < <(printf '%s\n' "${pkgs[@]}" | awk '{ p[NR] = $0; has[$0] = 1 }
-        END { for (i = 1; i <= NR; i++) if (!((p[i] "-signed") in has)) print p[i] }')
+        END { for (i = 1; i <= NR; i++) if (p[i] !~ /^proxmox-kernel-/ || !((p[i] "-signed") in has)) print p[i] }')
     echo "downloading ${pkgs[*]}" | tee -a "$LOG"
     rm -rf "$dir"; mkdir -p "$dir"
     (cd "$dir" && "$A/apt.sh" download "${pkgs[@]}") </dev/null >>"$LOG" 2>&1 || die "downloading failed, see $LOG"
@@ -419,10 +425,22 @@ step_proxmox-default-kernel() {
     done
     rm -rf "$dir"
     refresh_repo
-    [ -n "$(apt-cache policy proxmox-default-kernel | sed -n 's/^ *Candidate: //p' | grep -v '(none)')" ] \
-        || die "proxmox-default-kernel not available to apt from $R"
-    echo "=== proxmox-default-kernel: $n packages from Proxmox added to $R" | tee -a "$LOG"
+    [ -n "$(apt-cache policy "$root" | sed -n 's/^ *Candidate: //p' | grep -v '(none)')" ] \
+        || die "$root not available to apt from $R"
+    echo "=== $root: $n packages from Proxmox added to $R" | tee -a "$LOG"
 }
+
+# Proxmox's kernel, needed to install Proxmox VE (pve-manager depends on
+# proxmox-default-kernel): the meta package and the Proxmox packages it depends
+# on (the kernel series, the kernel image, pve-firmware)
+step_proxmox-default-kernel() { fetch_proxmox proxmox-default-kernel; }
+
+# Proxmox's Secure Boot chain, for machines booting with Secure Boot (like
+# upstream, not a dependency of proxmox-ve): its shim (signed by Microsoft,
+# trusting Proxmox's key) and GRUB (signed by Proxmox), which load Proxmox's
+# signed kernel; Debian's shim and GRUB only load Debian's. GRUB's 32-bit EFI
+# target, an alternative in proxmox-grub's dependencies, is left out.
+step_proxmox-secure-boot-support() { fetch_proxmox proxmox-secure-boot-support 'grub-efi-ia32.*'; }
 
 # proxmox-kernel-helper (proxmox-boot-tool and the kernel hooks), and the
 # proxmox-ve meta package, which depends on it, to install Proxmox VE as usual
