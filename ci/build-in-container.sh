@@ -51,8 +51,8 @@ mkdir -p build/ci build-logs
 
 # the packages (their checksums are in the index) and the manifest: a rebuild
 # with identical packages still records new commits, which must be published,
-# or the next run rebuilds the same steps again
-index() { cat repo/Packages repo/SOURCES 2>/dev/null | sha256sum | cut -d' ' -f1; }
+# or the next run rebuilds the same steps again; no SOURCES yet on a fresh run
+index() { { cat repo/Packages repo/SOURCES 2>/dev/null || true; } | sha256sum | cut -d' ' -f1; }
 before=$(index)
 
 steps=$(./select-steps.sh select "${STEPS:-auto}" repo/SOURCES)
