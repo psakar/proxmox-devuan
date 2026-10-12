@@ -1588,12 +1588,14 @@ to work in:
   Proxmox packages.
 - `build.sh` builds everything in the order below, with the special builds
   and the two bootstraps, into `repo/`; `--from <step>` resumes, `--install`
-  installs pve-manager afterwards. Its last step, `proxmox-default-kernel`,
-  builds nothing: it downloads Proxmox's kernel (proxmox-default-kernel and
-  the Proxmox packages it depends on: the kernel series package, the kernel
-  image, pve-firmware) into `repo/`, as installing Proxmox VE needs it.
-  The last two, `proxmox-kernel-helper` and `proxmox-ve`, build the
-  packages for `apt install proxmox-ve`.
+  installs pve-manager afterwards. Two steps build nothing, they download
+  from Proxmox into `repo/`: `proxmox-default-kernel` its kernel
+  (proxmox-default-kernel and the Proxmox packages it depends on: the
+  kernel series package, the kernel image, pve-firmware), as installing
+  Proxmox VE needs it, and `proxmox-secure-boot-support` its Secure Boot
+  chain (shim and GRUB, see "UEFI with Secure Boot" below). The last two,
+  `proxmox-kernel-helper` and `proxmox-ve`, build the packages for
+  `apt install proxmox-ve`.
 - `update-repo.sh` copies `repo/` to `/srv/repo` on an install machine
   (`REMOTE_MACHINE`, by default `root@pve2`) with scp, or with
   `rsync --delete` (`--rsync`), and gives it to `_apt`; `--upgrade` then runs
@@ -1771,7 +1773,8 @@ and its signature `.tar.gz.asc`.
   - `auto` (default): the steps whose source repositories' commits differ
     from the last release's `SOURCES`, that it doesn't list, or whose
     recorded version isn't in the repository's `Packages`, plus
-    `proxmox-default-kernel` (Proxmox's current kernel, downloaded). Which
+    `proxmox-default-kernel` and `proxmox-secure-boot-support` (Proxmox's
+    current kernel and Secure Boot packages, downloaded). Which
     repositories a step is built from: `build.sh --sources <step>` (e.g.
     libpve-rs-perl also from proxmox-rs, proxmox-ve-rs and perlmod).
     Clones follow the forks' feature branch or Proxmox's master, except
@@ -2042,6 +2045,12 @@ Pin-Priority: 600
 Package: libknet* libnozzle*
 Pin: origin download.proxmox.com
 Pin-Priority: 600
+
+# Secure Boot (proxmox-secure-boot-support): Proxmox's shim and GRUB, which
+# load its signed kernel, not Devuan's (Debian's)
+Package: shim-* grub-* grub2-common proxmox-grub
+Pin: origin download.proxmox.com
+Pin-Priority: 600
 EOF
 ```
 
@@ -2073,24 +2082,31 @@ apt-cache policy pve-manager systemd
 pve-manager's candidate is the `+devuan` version from `/srv/repo`, systemd's
 Devuan's.
 
-#### 3. The Proxmox kernel
+#### 3. The Proxmox kernel and the boot loader
 
-Install it and reboot into it, as in Proxmox's guide [Install Proxmox VE on
-Debian 13 Trixie: Install the Proxmox VE
+Install the kernel, as in Proxmox's guide [Install Proxmox VE on Debian 13
+Trixie: Install the Proxmox VE
 Kernel](https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_13_Trixie#Install_the_Proxmox_VE_Kernel):
 
 ```
 apt install -y proxmox-default-kernel
-reboot
 ```
 
-After the reboot, `uname -r` shows the `-pve` kernel.
+Before rebooting into it, set up the boot loader for how the machine
+boots: legacy BIOS, or UEFI with Secure Boot. What it booted with now:
 
-Before that reboot, on a machine booting in legacy BIOS mode from a GPT
-disk (GRUB in a "BIOS boot" partition): some BIOSes, e.g. Fujitsu PRIMERGY
-ones, only list such a disk as bootable when the protective MBR is marked
-active and the BIOS boot partition has the "Legacy BIOS Bootable"
-attribute. Set both (here partition 1 of `/dev/sda`):
+```
+[ -d /sys/firmware/efi ] && echo UEFI || echo "legacy BIOS"
+```
+
+##### Legacy BIOS
+
+Devuan's GRUB (`grub-pc`, as installed by Devuan's installer) boots the
+kernel, nothing to install. On a GPT disk (GRUB in a "BIOS boot"
+partition), some BIOSes, e.g. Fujitsu PRIMERGY ones, only list the disk as
+bootable when the protective MBR is marked active and the BIOS boot
+partition has the "Legacy BIOS Bootable" attribute. Set both (here
+partition 1 of `/dev/sda`):
 
 ```
 parted /dev/sda disk_set pmbr_boot on
@@ -2101,6 +2117,61 @@ parted /dev/sda print           # Disk Flags: pmbr_boot; 1 … bios_grub, legacy
 Don't use `parted … set 1 boot on` on a GPT disk: it turns the partition
 into an EFI System partition, which such a BIOS doesn't boot from either,
 and GRUB can't install to it anymore.
+
+Then:
+
+```
+reboot
+uname -r                # after the reboot: the -pve kernel
+```
+
+##### UEFI with Secure Boot
+
+The kernel is signed by Proxmox. Devuan's (Debian's) shim and GRUB only
+load kernels signed by Debian, so the machine needs Proxmox's shim (signed
+by Microsoft, trusting Proxmox's key) and GRUB (signed by Proxmox), as on
+Proxmox VE. The disk needs an EFI System partition (Devuan's installer
+creates one when it was booted in UEFI mode).
+
+```
+echo "grub-efi-amd64 grub2/force_efi_extra_removable boolean true" | debconf-set-selections
+apt install -y grub-efi-amd64 proxmox-secure-boot-support
+```
+
+`grub-efi-amd64` replaces `grub-pc` if that's installed (a machine
+installed in legacy BIOS mode); installing them runs `grub-install` and
+`update-grub`. GRUB goes into the EFI System partition's directory
+`EFI/devuan` (`EFI/proxmox` once proxmox-ve is installed, step 4: it sets
+`GRUB_DISTRIBUTOR` "Proxmox VE"), with a UEFI boot entry of that name,
+and, with the debconf setting, also into the fallback path `EFI/BOOT`,
+which firmware boots without a boot entry.
+
+Check:
+
+```
+apt-cache policy shim-signed grub-efi-amd64-signed   # the +pmx versions installed
+efibootmgr                                           # the new entry first in BootOrder
+```
+
+On a GPT disk that had the legacy BIOS flags above, clear the protective
+MBR's active flag: with it, UEFI firmware (e.g. Fujitsu PRIMERGY's) takes
+the disk for an MBR disk and doesn't find the EFI System partition.
+
+```
+parted /dev/sda disk_set pmbr_boot off
+```
+
+Then reboot, turn on Secure Boot (and off CSM/legacy boot) in the firmware
+setup, and after the reboot:
+
+```
+mokutil --sb-state      # SecureBoot enabled
+uname -r                # the -pve kernel
+```
+
+The same packages boot with Secure Boot off too. Kernels signed by Debian
+don't boot with Proxmox's shim under Secure Boot; no machine owner key
+(MOK) enrollment is needed for Proxmox's.
 
 #### 4. Proxmox VE
 
