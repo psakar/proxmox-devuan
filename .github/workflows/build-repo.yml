@@ -1,4 +1,4 @@
-# Build the Proxmox VE packages for Devuan into a signed apt repository and
+﻿# Build the Proxmox VE packages for Devuan into a signed apt repository and
 # publish it as a release (pve-devuan-repo-<tag>.tar.gz, with a detached
 # signature). Incremental: starts from the last release's repository and
 # rebuilds only what changed (see select-steps.sh); see openrc-devuan.md,
@@ -145,7 +145,7 @@ jobs:
           BUILT: ${{ needs.build.outputs.steps }}
         run: |
           {
-            echo "Proxmox VE for Devuan 6 excalibur (sysvinit/OpenRC): signed apt repository."
+            echo "Proxmox VE for Devuan 6 excalibur with OpenRC init system: signed apt repository."
             echo
             echo "Built in this run: ${BUILT:-nothing}"
             echo
