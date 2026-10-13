@@ -1766,7 +1766,7 @@ Each package is built after its build dependencies are installed.
 The workflow `.github/workflows/build-repo.yml` in this repository
 (`psakar/proxmox-devuan`), started by hand (Actions → Build repository → Run
 workflow), builds incrementally and publishes the repository as a release
-`<date>-<run>` (e.g. `20261011-1929-4`) with `proxmox-devuan-repo-<tag>.tar.gz`
+`<date>-<time>` in UTC (e.g. `20261012-0856`) with `proxmox-devuan-repo-<tag>.tar.gz`
 and its signature `.tar.gz.asc`.
 
 - **What gets built** (input `steps`):
