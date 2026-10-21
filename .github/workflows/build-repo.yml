@@ -1,7 +1,7 @@
 ﻿# Build the Proxmox VE packages for Devuan into a signed apt repository and
 # publish it as a release (proxmox-devuan-repo-<tag>.tar.gz, with a detached
 # signature). Incremental: starts from the last release's repository and
-# rebuilds only what changed (see select-steps.sh); see openrc-devuan.md,
+# rebuilds only what changed (see select-steps.sh); see BUILD.md,
 # "Building with GitHub Actions".
 #
 # Needs the environment 'release' with the secrets GPG_SIGNING_KEY (an armored

@@ -1,8 +1,8 @@
 #!/bin/bash
 # Copy the local repository repo/ (the result of build.sh) to
 # /srv/proxmox-devuan-repo on the install machine and give it to _apt;
-# optionally upgrade the machine from it (see openrc-devuan.md, "Installing"
-# and "Updating after a rebuild").
+# optionally upgrade the machine from it (see BUILD.md, "Installing" and
+# "Updating after a rebuild").
 #
 # Usage: [REMOTE_MACHINE=root@pve2] update-repo.sh [--rsync] [--upgrade]
 #   --rsync    copy with rsync --delete (mirrors repo/, removing debs no longer

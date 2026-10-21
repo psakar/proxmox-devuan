@@ -2,7 +2,7 @@
 # shellcheck disable=SC2024  # logs belong to the user: sudo's output is redirected as that user
 # Build the Proxmox VE packages for Devuan (sysvinit/OpenRC) from the
 # repositories in the current directory, as cloned by prepare-build.sh, into the
-# local repository repo/, in dependency order (see openrc-devuan.md, Part C).
+# local repository repo/, in dependency order (see BUILD.md).
 # Two steps add packages from Proxmox, not built here: its kernel
 # (proxmox-default-kernel and the Proxmox packages it depends on), needed to
 # install Proxmox VE, and its Secure Boot chain (proxmox-secure-boot-support:
