@@ -460,6 +460,16 @@ EOF
 
     # the system's apt uses the local repositories (not Proxmox's)
     printf 'deb [trusted=yes] file:%s ./\n' "$R" "$P" | sudo tee /etc/apt/sources.list.d/proxmox-devuan-local.list >/dev/null
+
+    # but not Proxmox's shim and GRUB in repo/ (proxmox-secure-boot-support):
+    # without Proxmox's repository, the system's apt would upgrade grub-common
+    # to Proxmox's and remove grub-pc, which needs Devuan's version
+    sudo tee /etc/apt/preferences.d/proxmox-devuan-local >/dev/null <<'EOF'
+# the build machine keeps Devuan's boot loader packages
+Package: shim-* grub-* grub2-common proxmox-grub
+Pin: version /\+pmx[0-9]/
+Pin-Priority: -1
+EOF
 }
 
 # Proxmox's signing key, checked by its fingerprint before use
