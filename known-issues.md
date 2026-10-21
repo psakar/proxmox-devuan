@@ -109,7 +109,7 @@ the packaged version changes.
 
 ## apt reports "Permission denied" for the local repository
 
-`apt-get update` prints `Err: file:/home/saki/proxmox/repo ./ Packages …
+`apt-get update` prints `Err: file:/home/saki/proxmox-devuan/repo ./ Packages …
 Permission denied`, because apt's `_apt` sandbox user can't enter
 `/home/saki` (mode 700). apt then reads it as root (`Get: … Packages`), so
 the index is loaded. Cosmetic; moving the repository out of the home

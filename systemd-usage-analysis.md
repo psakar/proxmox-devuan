@@ -1,7 +1,7 @@
 # systemd usage in Proxmox VE
 
 Everything known about how Proxmox VE depends on systemd, collected from the
-per-repository analyses, a scan of all repositories under `~/proxmox`, and
+per-repository analyses, a scan of all repositories under `~/proxmox-devuan`, and
 building and running PVE on Devuan 6 "excalibur" (sysvinit as PID 1, OpenRC
 as rc system). Plan and changes: `openrc-devuan.md`. Repository list and
 scope: `repositories.md`. State: 2026-10-02.

@@ -1,6 +1,6 @@
 # Proxmox repositories relevant to PVE on Devuan (OpenRC)
 
-The repositories under `~/proxmox` and `~/proxmox/deps` that
+The repositories under `~/proxmox-devuan` and `~/proxmox-devuan/deps` that
 matter for installing and running pve-manager on Devuan 6 "excalibur" with
 OpenRC. All are clones of `https://git.proxmox.com/git/<name>.git`, with that
 remote named `upstream` in the top-level repositories (except proxmox-rs:
@@ -11,7 +11,7 @@ proxmox-perl-rs) also have remote `origin`, their GitHub fork
 branch the local one tracks (ifupdown2's, frr's, proxmox-kernel-helper's and
 proxmox-ve's aren't forks: Proxmox has no GitHub mirror of them).
 "Branch" means `feature/init-systems-refactoring`.
-The repositories changed for Devuan (including packaging-only ones with init-system changes (actual or planned)) are at the top level of `~/proxmox`,
+The repositories changed for Devuan (including packaging-only ones with init-system changes (actual or planned)) are at the top level of `~/proxmox-devuan`,
 as are those with open plan items (including Ceph and ZFS, out of scope for
 now). `deps/` holds the unchanged repositories of installed packages and
 two kept for reference (sections 3 and 4).
@@ -34,26 +34,26 @@ These repositories hold no source code of their own, only the Debian
 packaging (`debian/`, `Makefile`, Proxmox patches) around an upstream
 project. Init-system changes in them are packaging changes (init scripts,
 `debian/rules`, patches). Those with such changes, done or planned, are at
-the top level of `~/proxmox`; the others are in `deps/`.
+the top level of `~/proxmox-devuan`; the others are in `deps/`.
 
 | Repository | Location | Upstream source | Init-system changes | In section |
 |---|---|---|---|---|
-| lxc | `~/proxmox/lxc` | submodule `lxc` (mirror_lxc) | done: init scripts | 1 |
-| ifupdown2 | `~/proxmox/ifupdown2` | submodule `ifupdown2` (mirror_ifupdown2) | done: init script, start-networking patch | 1 |
-| pve-qemu | `~/proxmox/pve-qemu` | submodule `qemu` (mirror_qemu), patches | done: stderr syslog fallback patch | 1 |
-| frr | `~/proxmox/frr` | submodule `frr` (mirror_frr) | done: init script, profile | 1 |
-| corosync-pve | `~/proxmox/corosync-pve` | submodule `upstream` (mirror_corosync) | done: init script, profile | 1 |
-| ksm-control-daemon | `~/proxmox/ksm-control-daemon` | tarball `ksm-control-scripts.org.tar.gz` | done: init script, profile | 1 |
-| proxmox-ve | `~/proxmox/proxmox-ve` | none: meta package, only `debian/` | done: profile dropping `systemd-sysv` | 1 |
-| zfsonlinux | `~/proxmox/zfsonlinux` | submodule `upstream` (mirror_zfs) | planned, but out of scope | 3 |
-| ceph | `~/proxmox/ceph` | vendored tree `ceph/`, patches | planned, but out of scope | 3 |
-| novnc-pve | `~/proxmox/deps/novnc-pve` | submodule `novnc` (mirror_novnc) | none | 3 |
-| extjs | `~/proxmox/deps/extjs` | vendored tree `extjs/` | none | 3 |
-| libjs-qrcodejs | `~/proxmox/deps/libjs-qrcodejs` | vendored `src/qrcode.js` | none | 3 |
-| fonts-font-logos | `~/proxmox/deps/fonts-font-logos` | vendored `src/font-logos/` | none | 3 |
-| pve-edk2-firmware | `~/proxmox/deps/pve-edk2-firmware` | submodule `edk2` (mirror_edk2) | none | 3 |
-| proxmox-biome | `~/proxmox/deps/proxmox-biome` | vendored `biome/`, `vendor/` | none | 3 |
-| lxcfs | `~/proxmox/deps/lxcfs` | submodule `lxcfs` (mirror_lxcfs) | none (Devuan's lxcfs used) | 4 |
+| lxc | `~/proxmox-devuan/lxc` | submodule `lxc` (mirror_lxc) | done: init scripts | 1 |
+| ifupdown2 | `~/proxmox-devuan/ifupdown2` | submodule `ifupdown2` (mirror_ifupdown2) | done: init script, start-networking patch | 1 |
+| pve-qemu | `~/proxmox-devuan/pve-qemu` | submodule `qemu` (mirror_qemu), patches | done: stderr syslog fallback patch | 1 |
+| frr | `~/proxmox-devuan/frr` | submodule `frr` (mirror_frr) | done: init script, profile | 1 |
+| corosync-pve | `~/proxmox-devuan/corosync-pve` | submodule `upstream` (mirror_corosync) | done: init script, profile | 1 |
+| ksm-control-daemon | `~/proxmox-devuan/ksm-control-daemon` | tarball `ksm-control-scripts.org.tar.gz` | done: init script, profile | 1 |
+| proxmox-ve | `~/proxmox-devuan/proxmox-ve` | none: meta package, only `debian/` | done: profile dropping `systemd-sysv` | 1 |
+| zfsonlinux | `~/proxmox-devuan/zfsonlinux` | submodule `upstream` (mirror_zfs) | planned, but out of scope | 3 |
+| ceph | `~/proxmox-devuan/ceph` | vendored tree `ceph/`, patches | planned, but out of scope | 3 |
+| novnc-pve | `~/proxmox-devuan/deps/novnc-pve` | submodule `novnc` (mirror_novnc) | none | 3 |
+| extjs | `~/proxmox-devuan/deps/extjs` | vendored tree `extjs/` | none | 3 |
+| libjs-qrcodejs | `~/proxmox-devuan/deps/libjs-qrcodejs` | vendored `src/qrcode.js` | none | 3 |
+| fonts-font-logos | `~/proxmox-devuan/deps/fonts-font-logos` | vendored `src/font-logos/` | none | 3 |
+| pve-edk2-firmware | `~/proxmox-devuan/deps/pve-edk2-firmware` | submodule `edk2` (mirror_edk2) | none | 3 |
+| proxmox-biome | `~/proxmox-devuan/deps/proxmox-biome` | vendored `biome/`, `vendor/` | none | 3 |
+| lxcfs | `~/proxmox-devuan/deps/lxcfs` | submodule `lxcfs` (mirror_lxcfs) | none (Devuan's lxcfs used) | 4 |
 
 Mixed, own code plus a bundled upstream: vncterm (LibVNCServer tarball),
 proxmox-acme (acme.sh submodule for the DNS plugins), pve-xtermjs (xterm.js

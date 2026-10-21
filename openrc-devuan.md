@@ -1241,7 +1241,7 @@ expects Debian's packaged crates.
     - Where a local build with a higher version is installed, fetch
       Proxmox's version explicitly (`pkg=version`) and install it with
       `--allow-downgrades`. Old local builds are kept in
-      `~/proxmox/repo-removed/`, outside the local repo.
+      `~/proxmox-devuan/repo-removed/`, outside the local repo.
 
 ### Phase 15: forks
 
@@ -1573,7 +1573,7 @@ Not committed: `proxmox-rs/systemd-usage-analysis.md` and
 | proxmox-ve | `75f62ea` | 91 |
 | proxmox-firewall | `9188944` | 96 |
 
-All repositories are at `~/proxmox/<name>`.
+All repositories are at `~/proxmox-devuan/<name>`.
 
 Order constraints when redoing it:
 
@@ -1587,7 +1587,7 @@ Order constraints when redoing it:
 
 ## Part C: building and installing
 
-Three scripts in `~/proxmox` automate this part; run them from the directory
+Three scripts in `~/proxmox-devuan` automate this part; run them from the directory
 to work in:
 
 - `prepare-build.sh` clones the repositories (Devuan branches from the
@@ -1632,8 +1632,8 @@ The sections below describe what they do.
   forks `https://github.com/psakar/<name>` (remote `origin`; ifupdown2's, frr's,
   proxmox-kernel-helper's and proxmox-ve's are plain repositories, as
   Proxmox has no GitHub mirror of them). All changed repositories are in
-  `~/proxmox/<name>`, as are those with open plan items (pve-vgpu-helper, proxmox-widget-toolkit, `ui/`, and
-  zfsonlinux and ceph, out of scope for now). `~/proxmox/deps/` keeps only
+  `~/proxmox-devuan/<name>`, as are those with open plan items (pve-vgpu-helper, proxmox-widget-toolkit, `ui/`, and
+  zfsonlinux and ceph, out of scope for now). `~/proxmox-devuan/deps/` keeps only
   the 23 unchanged repositories of installed packages (see
   `repositories.md`); the others were deleted on 2026-10-03.
 - Build tools: `build-essential devscripts equivs fakeroot lintian
@@ -1661,7 +1661,12 @@ The sections below describe what they do.
     repository, with `fetch-proxmox.sh` and the private fetch
     configuration `proxmox-fetch/`;
   - each has an `update-index.sh` that regenerates its `Packages(.gz)` with
-    `apt-ftparchive`, from the `.deb` files directly in it.
+    `apt-ftparchive`, from the `.deb` files directly in it;
+  - `/etc/apt/preferences.d/proxmox-devuan-local` keeps the system's apt
+    off Proxmox's shim and GRUB in `repo/` (versions matching `+pmx<N>`,
+    from `proxmox-secure-boot-support`): without Proxmox's repository, an
+    upgrade would replace `grub-common` with Proxmox's and remove `grub-pc`,
+    which needs Devuan's version.
 - **Fetching unchanged Proxmox packages**
   (`repo-proxmox/fetch-proxmox.sh pkg…`):
   - `proxmox-fetch/apt.sh` runs apt-get with a private configuration: its
@@ -1691,11 +1696,11 @@ The sections below describe what they do.
 - **Special builds:**
   - qemu-server needs `RELAX_BUILD_DEPS=1`: it build-depends on
     `pve-qemu-kvm (>= 11.1~)` (for its tests) while 11.0.3 is installed.
-  - libpve-rs-perl is built in `~/proxmox/build/libpve-rs-perl-<version>/`
+  - libpve-rs-perl is built in `~/proxmox-devuan/build/libpve-rs-perl-<version>/`
     with a generated `.cargo/config.toml` (the local crates patched in) and
     `dpkg-buildpackage -d`.
   - pve-lxc-syscalld is built from its build directory moved to
-    `~/proxmox/build/` (its own `.cargo` config points at Debian's crate
+    `~/proxmox-devuan/build/` (its own `.cargo` config points at Debian's crate
     registry), without `.cargo`, without the `prepare-debian` line in
     `debian/rules`, and with `-d`.
 - **Building** (`repo/build-repo.sh <dir>`):
@@ -1708,7 +1713,7 @@ The sections below describe what they do.
       (for circular build dependencies)
   - runs `make clean` (stale build directories would hide source changes;
     seen with lxc), then `make deb`
-  - copies the debs into the repo; logs to `~/proxmox/build-logs/<repo>.log`
+  - copies the debs into the repo; logs to `~/proxmox-devuan/build-logs/<repo>.log`
     with `tee -a`
 
 ### Build order
@@ -1759,7 +1764,7 @@ Each package is built after its build dependencies are installed.
    **frr** (`pkg.frr.lsbservice`) and **ksm-control-daemon**
    (`pkg.ksm-control-daemon.lsbservice`).
 8. **pve-ha-manager**, **lxc**, **pve-lxc-syscalld**. Build
-   pve-lxc-syscalld outside the repository tree (`~/proxmox/build/`),
+   pve-lxc-syscalld outside the repository tree (`~/proxmox-devuan/build/`),
    because cargo picks up `.cargo/config.toml` from parent directories.
 9. **pve-container**, **qemu-server**.
 10. **pve-manager** (`RELAX_BUILD_DEPS=1 BUILD_PARALLEL=1`; needs fakeroot
@@ -1965,11 +1970,11 @@ chown -R _apt:root /srv/repo
 Then use the signed sources entry in step 2.
 
 **From the build machine** (unsigned): its `repo/`, including
-`Packages`/`Packages.gz`. For example, with the build in `~test/proxmox` on
+`Packages`/`Packages.gz`. For example, with the build in `~test/proxmox-devuan` on
 the build machine:
 
 ```
-rsync -a test@<build machine>:proxmox/repo/ /srv/repo/
+rsync -a test@<build machine>:proxmox-devuan/repo/ /srv/repo/
 chown -R _apt:root /srv/repo
 ```
 
