@@ -1,7 +1,8 @@
 #!/bin/bash
-# Copy the local repository repo/ (the result of build.sh) to /srv/repo on the
-# install machine and give it to _apt; optionally upgrade the machine from it
-# (see openrc-devuan.md, "Installing on another machine").
+# Copy the local repository repo/ (the result of build.sh) to
+# /srv/proxmox-devuan-repo on the install machine and give it to _apt;
+# optionally upgrade the machine from it (see openrc-devuan.md, "Installing"
+# and "Updating after a rebuild").
 #
 # Usage: [REMOTE_MACHINE=root@pve2] update-repo.sh [--rsync] [--upgrade]
 #   --rsync    copy with rsync --delete (mirrors repo/, removing debs no longer
@@ -12,6 +13,7 @@
 set -euo pipefail
 
 REMOTE_MACHINE=${REMOTE_MACHINE:-root@pve2}
+DEST=/srv/proxmox-devuan-repo
 
 info() { printf '\n=== %s\n' "$*"; }
 
@@ -28,17 +30,17 @@ done
 
 [ -d repo ] || { echo "repo/ not found, run from the build directory" >&2; exit 1; }
 
-info "Creating /srv/repo on $REMOTE_MACHINE"
-ssh "$REMOTE_MACHINE" 'mkdir -p /srv/repo'
+info "Creating $DEST on $REMOTE_MACHINE"
+ssh "$REMOTE_MACHINE" "mkdir -p $DEST"
 if [ "$RSYNC" = 1 ]; then
-    info "Copying repo/ to $REMOTE_MACHINE:/srv/repo with rsync --delete"
-    rsync -a --delete --info=stats1 repo/ "$REMOTE_MACHINE:/srv/repo/"
+    info "Copying repo/ to $REMOTE_MACHINE:$DEST with rsync --delete"
+    rsync -a --delete --info=stats1 repo/ "$REMOTE_MACHINE:$DEST/"
 else
-    info "Copying repo/ to $REMOTE_MACHINE:/srv/repo with scp"
-    scp -r repo/* "$REMOTE_MACHINE:/srv/repo/"
+    info "Copying repo/ to $REMOTE_MACHINE:$DEST with scp"
+    scp -r repo/* "$REMOTE_MACHINE:$DEST/"
 fi
-info "Giving /srv/repo to _apt on $REMOTE_MACHINE"
-ssh "$REMOTE_MACHINE" 'chown -R _apt:root /srv/repo'
+info "Giving $DEST to _apt on $REMOTE_MACHINE"
+ssh "$REMOTE_MACHINE" "chown -R _apt:root $DEST"
 
 if [ "$UPGRADE" = 1 ]; then
     info "Upgrading $REMOTE_MACHINE: apt update && apt full-upgrade"

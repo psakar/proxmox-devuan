@@ -255,7 +255,7 @@ reads the syslog files via `PVE::InitSystem::read_journal`, in the plain
 format the UI's journal view accepts. The priority filter has no effect
 (the files don't record the priority), lines aren't coloured, and the
 identifier and unit filter lists stay empty. Needs rsyslog (see the install
-prerequisites in `openrc-devuan.md`). Not yet verified in the UI.
+prerequisites in `INSTALL.md`). Not yet verified in the UI.
 
 ## ZFS pools aren't imported or mounted at boot
 
