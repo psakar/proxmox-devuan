@@ -370,8 +370,7 @@ step_proxmox-firewall() {
 
 step_pve-ha-manager() { repo_build pve-ha-manager; }
 
-# its build dependency pve-qemu-kvm (>= 11.1~) is only needed by the tests
-step_qemu-server() { repo_build qemu-server RELAX_BUILD_DEPS=1; }
+step_qemu-server() { repo_build qemu-server; }
 
 step_pve-container() { repo_build pve-container; }
 step_pve-manager() { repo_build pve-manager BUILD_PARALLEL=1; }

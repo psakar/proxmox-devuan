@@ -347,8 +347,9 @@ Build/packaging:
     - the journal or pipe fd is closed after `dup2()`
   - Messages end up in `/var/log/syslog` as `QEMU[<pid>]`, readable via
     the PVE syslog API. No change needed in qemu-server or pvestatd.
-  - Based on the `stable-11.0` branch at `7fccdcf` (11.0.3-4, the installed
-    version), with version `11.0.3-4+devuan1`.
+  - Based on the 11.1.3-1 release at `ae7733c` (`master`), with version
+    `11.1.3-1+devuan1`; first made for `stable-11.0` at `7fccdcf`
+    (11.0.3-4), see step 101.
   - Patch written with `git am` of the whole series in a scratch worktree
     of the QEMU submodule, exported with `git format-patch --zero-commit
     --no-signature --start-number 51`. checkpatch only asks for a
@@ -1549,31 +1550,91 @@ expects Debian's packaged crates.
 Not committed: `proxmox-rs/systemd-usage-analysis.md` and
 `proxmox-rs/init-system-rework.md` (untracked in proxmox-rs).
 
+### Phase 25: rebase onto Proxmox's releases of November 2026
+
+101. **Rebase onto the latest releases** (2026-11-10). `upstream-tags.sh`
+     tagged Proxmox's latest version of each package (pve-no-subscription,
+     trixie) as `proxmox/<source>/<version>`; the branches of 15
+     repositories were behind. Each branch was replayed onto its tag, the
+     old branch kept locally as `pre-rebase/20261110`:
+     - Commits only changing `debian/changelog` (the `+devuanN` bumps) were
+       dropped, the other commits replayed without their changelog
+       changes. Each package then got one new `+devuan1` entry with the
+       items of the old `+devuanN` entries.
+     - Conflicts: version dependencies in `debian/control` (the higher one
+       kept), `test/Makefile` (pve-common: both new tests), the patch
+       series of ifupdown2 (ours renumbered to `pve/0019-…`) and pve-qemu
+       (ours renumbered to `pve/0055-…`), pve-manager's `services/Makefile`
+       (upstream's single `ceph-.service.d` drop-in, plus rbdmap and
+       cephfs-mirror, in `install-systemd`), pve-storage's ESXi plugin
+       imports.
+     - pve-qemu moves from `stable-11.0` (11.0.3-4) to 11.1.3-1 (`master`,
+       QEMU submodule `005c61c0`); all 67 patches apply to QEMU 11.1.3.
+     - proxmox-rs: libpve-rs-perl 0.16.0 needs proxmox-notify 2.0.0, which
+       the GitHub mirror didn't have yet; its `upstream` is now
+       `git.proxmox.com/git/proxmox.git`, and the branch is based on
+       `936172b0` (notify 2.0.0, the day of libpve-rs-perl 0.16.0).
+       proxmox-ve-rs is pinned at `e256d0b` (ve-config 0.11.0, frr 0.6.0,
+       sdn-types 0.2.5), perlmod unchanged. `cargo check` of libpve-rs-perl
+       and proxmox-firewall against the local crates passes, as do the
+       proxmox-apt, proxmox-apt-api-types and proxmox-log tests.
+     - `upstream-systemd-scan.sh` found 9 systemd-related commits among the
+       413 new upstream commits; steps 102–104 adapt the two that need it.
+       corosync 3.2.0 moved its init files (`init/systemd/`, `init/other/`)
+       and added OpenRC scripts in `init/openrc/`; the lsbservice profile's
+       own init script is unaffected.
+102. **pve-common `f123a1e` (`9.2.8+devuan1`): `PVE::InitSystem::kill_scope`.**
+     Sends a signal to all processes of a scope at once: `systemctl kill
+     --kill-whom=all --signal=<sig>` with systemd; `cgroup.kill` for SIGKILL
+     (Linux 5.14+) or else the signal to the PIDs in `cgroup.procs` with
+     LSBService. Doesn't wait; `wait_for_unit_removed` does, and removes
+     the emptied scope. Tests in `initsystem-test.pl` and
+     `initsystem-taint-test.pl` (under `-T`).
+103. **qemu-server `f2bf9bc` (`9.2.15+devuan1`): a failed VM start's scope is
+     killed via `PVE::InitSystem`.** Since 9.2.15 (`14faa1d`, fix #7590)
+     the start-failure cleanup ran `systemctl kill --kill-whom=all
+     --signal=KILL <vmid>.scope` and `PVE::Systemd::wait_for_unit_removed`;
+     it also used `%silence_std_outs`, which step 39 removed, so after the
+     replay `QemuServer.pm` didn't compile. Now `kill_scope` (errors
+     ignored, as with `noerr`) and `PVE::InitSystem::wait_for_unit_removed`.
+104. **pve-cluster `3a2f234` (`9.1.9+devuan1`): `pvecm updatecerts
+     --rotate-ca` reloads pveproxy via the init system.** Upstream's
+     `fdafbd5` ran `systemctl reload-or-restart pveproxy` on each node.
+     Locally now `PVE::InitSystem::restart_service('pveproxy', 1)`
+     (reload-or-restart in both backends), on other nodes
+     `remote_service_cmd` with a new `reload-or-restart` action (`service
+     pveproxy reload || service pveproxy restart` without systemd). The
+     error message for failed nodes no longer names systemctl.
+105. **Dependencies on libpve-common-perl `9.2.8+devuan1`** (pve-cluster,
+     pve-network, qemu-server, pve-manager, pve-container, pve-storage,
+     pve-firewall): Proxmox has released 9.2.3 and later without
+     `PVE::InitSystem`, so `>= 9.2.3` no longer guarantees it.
+
 ### Changes per repository
 
-| Repository | Base (`master`) | Steps |
+| Repository | Base | Steps |
 |---|---|---|
-| pve-common | `9943f6f9` | 1–9, 14, 25, 31, 33–35, 38, 45, 51, 59, 74, 76, 79, 85, 93, 98 |
-| pve-manager | `58350116` | 10–13, 15–17, 20, 29, 30, 32, 37, 42, 56, 64, 65, 69, 79–81, 84, 85, 92, 95, 99, 100 |
-| pve-cluster | `7091d92e` | 18, 21, 22, 26, 52, 79 |
+| pve-common | `1cd7093` (9.2.8) | 1–9, 14, 25, 31, 33–35, 38, 45, 51, 59, 74, 76, 79, 85, 93, 98, 101, 102 |
+| pve-manager | `41a0e2e0` (9.2.26) | 10–13, 15–17, 20, 29, 30, 32, 37, 42, 56, 64, 65, 69, 79–81, 84, 85, 92, 95, 99–101, 105 |
+| pve-cluster | `f79e17b` (9.1.9) | 18, 21, 22, 26, 52, 79, 101, 104, 105 |
 | pve-ha-manager | `28c31e41` | 19, 23, 24, 27, 28, 54, 79–81 |
-| qemu-server | `a7b4240b` | 36, 39–41, 55, 63, 79, 98, 99 |
-| pve-container | `de0ddd65` | 43, 44, 79, 97 |
-| pve-storage | `f1a6ef43` | 46–48, 79 |
-| pve-firewall | `9480dd17` | 49, 50, 53, 79–81 |
-| pve-network | `ce388c5e` | 57, 58, 60, 66, 79, 87 |
+| qemu-server | `710476c` (9.2.15) | 36, 39–41, 55, 63, 79, 98, 99, 101, 103, 105 |
+| pve-container | `00dd7c8` (6.1.18) | 43, 44, 79, 97, 101, 105 |
+| pve-storage | `cdeec1e` (9.1.15) | 46–48, 79, 101, 105 |
+| pve-firewall | `2ff9e4f` (6.0.7) | 49, 50, 53, 79–81, 101, 105 |
+| pve-network | `4be47af` (1.6.8) | 57, 58, 60, 66, 79, 87, 101, 105 |
 | pve-lxc-syscalld | `410afbcb` | 61, 79 |
 | lxc | `680dfc75` | 62, 68, 79, 83 |
-| ifupdown2 | `9cc4d923` | 67, 78, 83 |
-| proxmox-rs | `89c1d597` | 70–73, 77 |
-| pve-qemu | `7fccdcf` (stable-11.0) | 75, 83 |
-| proxmox-perl-rs | `38ce5a02` | 79, 82 |
+| ifupdown2 | `705d9a2` (3.3.0-1+pmx13) | 67, 78, 83, 101 |
+| proxmox-rs | `936172b0` | 70–73, 77, 101 |
+| pve-qemu | `ae7733c` (11.1.3-1) | 75, 83, 101 |
+| proxmox-perl-rs | `95d60b0` (pve-rs 0.16.0) | 79, 82, 101 |
 | frr | `20d9f22` | 86 |
-| corosync-pve | `0d40544` | 88 |
+| corosync-pve | `7c144fe` (3.2.0-pve1) | 88, 101 |
 | ksm-control-daemon | `2349336` | 89 |
-| proxmox-kernel-helper | `7bdc4db` | 90, 94 |
+| proxmox-kernel-helper | `366cbf1` (9.2.1) | 90, 94, 101 |
 | proxmox-ve | `75f62ea` | 91 |
-| proxmox-firewall | `9188944` | 96 |
+| proxmox-firewall | `81ce544` (1.2.4) | 96, 101 |
 
 All repositories are at `~/proxmox-devuan/<name>`.
 

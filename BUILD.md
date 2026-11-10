@@ -36,6 +36,14 @@ tarball, with two more scripts (see "Building with GitHub Actions"):
 - `package-repo.sh` removes older package versions from `repo/`, signs it
   (`Release`, `InRelease`, `Release.gpg`) and packs it.
 
+Two more scripts check what Proxmox has released since the last build (see
+"Checking upstream releases"):
+
+- `upstream-tags.sh` tags Proxmox's latest release of each package in the
+  clones.
+- `upstream-systemd-scan.sh` lists the systemd-related changes in the
+  upstream commits the build lacks.
+
 The sections below describe what they do.
 
 ## Environment
@@ -110,8 +118,6 @@ The sections below describe what they do.
   rebuild with changes, as apt won't replace a package with a different one
   of the same version.
 - **Special builds:**
-  - qemu-server needs `RELAX_BUILD_DEPS=1`: it build-depends on
-    `pve-qemu-kvm (>= 11.1~)` (for its tests) while 11.0.3 is installed.
   - libpve-rs-perl is built in `~/proxmox-devuan/build/libpve-rs-perl-<version>/`
     with a generated `.cargo/config.toml` (the local crates patched in) and
     `dpkg-buildpackage -d`.
@@ -148,7 +154,8 @@ Each package is built after its build dependencies are installed.
    proxmox-biome, and libpve-apiclient-perl, libpve-http-server-perl,
    spiceterm, vncterm, libjs-extjs, fonts-font-logos, libjs-qrcodejs,
    novnc-pve, perlmod-bin, libproxmox-acme-perl, libproxmox-acme-plugins,
-   libproxmox-rs-perl, and kronosnet (libknet, libnozzle) for corosync.
+   libproxmox-rs-perl, kronosnet (libknet, libnozzle) for corosync, and
+   swtpm (swtpm, swtpm-libs, swtpm-tools, libtpms0) for qemu-server.
 2. **proxmox-perl-rs** → libpve-rs-perl, first and without its tests
    (`nocheck`): pve-common's build needs Proxmox's libproxmox-rs-perl,
    which depends on libpve-rs-perl. libpve-rs-perl's build itself needs
@@ -164,7 +171,7 @@ Each package is built after its build dependencies are installed.
    from crates.io), and whose `debian/rules` doesn't set up the Debian
    registry. The repository stays unchanged.
 3. **pve-common** (lsbservice) → libpve-common-perl.
-4. **pve-qemu** → pve-qemu-kvm (stderr patch), based on `stable-11.0`,
+4. **pve-qemu** → pve-qemu-kvm (stderr patch), based on 11.1.3-1,
    then **corosync-pve** (`pkg.corosync.lsbservice`), whose libraries
    pve-cluster builds against.
 5. **pve-cluster**, with `WITH_TESTS=1 BUILD_PARALLEL=1`:
@@ -340,3 +347,54 @@ Without `--rsync` it copies with scp, which doesn't remove debs no longer in
 `--upgrade` it only copies, and `sudo apt update && sudo apt full-upgrade`
 is run on the install machine by hand. When the build adds packages, add
 them to the pins (`INSTALL.md`, step 2) first.
+
+## Checking upstream releases
+
+Before rebuilding with Proxmox's newer releases, run from the build
+directory (the one with the clones), after `prepare-build.sh`:
+
+```
+mkdir -p build-logs
+./upstream-tags.sh | tee -a build-logs/upstream-tags.log
+./upstream-systemd-scan.sh | tee -a build-logs/upstream-systemd-scan.log
+```
+
+Both take their repository list from `prepare-build.sh` (`BUILD_REPOS` and
+`SOURCE_REPOS`); repository names as arguments limit them to those clones.
+
+`upstream-tags.sh`:
+
+- fetches Proxmox's repository (remote `upstream`) in each clone
+  (`--no-fetch` skips this);
+- looks up the latest version of each source package in Proxmox's package
+  index (`http://download.proxmox.com/debian/pve`, trixie,
+  pve-no-subscription; `PROXMOX_REPO`, `DIST` and `COMPONENT` change them);
+- tags the upstream commit that introduced that version in
+  `debian/changelog` as `proxmox/<source>/<version>` (DEP-14: `:` becomes
+  `%`, `~` becomes `_`). The tags are local only and never pushed; an
+  existing tag is kept, with a warning if it points elsewhere. `--dry-run`
+  finds the commits without tagging.
+
+It prints one line per source package: the version of the checkout (the
+last build), Proxmox's latest version, the tag, and either `included` or
+how many upstream commits the checkout lacks. Source packages that aren't
+in Proxmox's index (the crates of proxmox-rs and perlmod) are skipped.
+
+`upstream-systemd-scan.sh` scans, for each `proxmox/*` tag not in the
+checkout's HEAD, the commits from the merge base to the tag. It reports
+each commit that:
+
+- adds or removes lines matching the systemd patterns of
+  `systemd-usage-analysis.md` (systemctl, the journal, scopes, sd_notify,
+  D-Bus, tmpfiles/sysusers, other systemd tools) or unit file keys;
+- changes unit files, tmpfiles/sysusers files, or files with `systemd` in
+  their path.
+
+`debian/changelog` and translations are left out; `--lines <n>` limits
+the lines shown per commit (default 12). The last line gives the total,
+e.g. `9 of 413 commits with systemd-related changes`. The hits need
+checking by hand: known false positives are `.scope` in JavaScript,
+systemd inside guests (pve-container's `PVE::LXC::Setup`) and
+systemd-boot. The relevant ones need the same adaptation as the existing
+changes (`openrc-devuan.md`) before the Devuan branches are rebased onto
+or merged with the new releases.

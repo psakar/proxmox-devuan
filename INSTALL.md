@@ -137,6 +137,11 @@ Package: libknet* libnozzle*
 Pin: origin download.proxmox.com
 Pin-Priority: 600
 
+# qemu-server needs Proxmox's swtpm 0.10.2 or newer, Devuan has 0.7.1
+Package: swtpm swtpm-* libtpms*
+Pin: origin download.proxmox.com
+Pin-Priority: 600
+
 # Secure Boot (proxmox-secure-boot-support): Proxmox's shim and GRUB, which
 # load its signed kernel, not Devuan's (Debian's)
 Package: shim-* grub-* grub2-common proxmox-grub
@@ -160,6 +165,9 @@ EOF
   (`known-issues.md`); the one from `/srv/proxmox-devuan-repo` doesn't. It needs
   Proxmox's kronosnet (`libknet*`, `libnozzle*`), hence their 600 pin, like
   the Ceph libraries'.
+- qemu-server needs Proxmox's swtpm (`swtpm-tools (>= 0.10.2+pve1)`, with
+  `swtpm`, `swtpm-libs`, `libtpms0`), newer than Devuan's 0.7.1, hence the
+  600 pin for `swtpm*` and `libtpms*`.
 - A newer unchanged Proxmox package may need a newer version of one built
   for Devuan; apt then holds it back until that's rebuilt.
 

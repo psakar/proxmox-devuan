@@ -52,21 +52,21 @@ BUILD_REPOS=(
 SOURCE_REPOS=(perlmod proxmox-ve-rs)
 
 declare -A UPSTREAM_URL=(
-    [proxmox-rs]=https://github.com/proxmox/proxmox-rs.git
+    [proxmox-rs]=$UPSTREAM_BASE/proxmox.git
 )
 # What the Devuan branch is based on, checked out when falling back to upstream
-# (default: master); pve-qemu's is the 11.0.3-4 release on stable-11.0
+# (default: master); pve-qemu's is the 11.1.3-1 release
 declare -A BASE_REF=(
-    [pve-qemu]=7fccdcf
+    [pve-qemu]=ae7733c
 )
 # What to build from, for reproducible builds: a commit, tag or branch, checked
 # out after cloning instead of the default (the fork's $BRANCH, or Proxmox's
 # master). An existing clone is kept, with a warning if it's elsewhere.
-# perlmod and proxmox-ve-rs: what libpve-rs-perl 0.15.3+devuan1 was built
+# perlmod and proxmox-ve-rs: what libpve-rs-perl 0.16.0+devuan1 was built
 # against; move them together with a changelog bump of proxmox-perl-rs.
 declare -A REF=(
     [perlmod]=3a667956097b361a9ef40fa8a2f6c0e26711b025
-    [proxmox-ve-rs]=61125e1fbf8d0f1a6385153bfd6eae36254b9b89
+    [proxmox-ve-rs]=e256d0bd535923d0f805d3d79352ff8ef09be07b
 )
 
 # Repositories with open plan items (init-system work still to do), cloned from
@@ -157,6 +157,7 @@ PROXMOX_PACKAGES=(
     ceph-common ceph-fuse librados2 librbd1 libcephfs2 librgw2 libradosstriper1
     librados-dev librbd-dev
     libknet1t64 libknet-dev libnozzle1t64 libnozzle-dev
+    swtpm swtpm-libs swtpm-tools libtpms0
     python3-ceph-argparse python3-ceph-common python3-cephfs python3-rados
     python3-rbd python3-rgw
 )
@@ -316,13 +317,20 @@ EOF
 # Download packages from Proxmox's repository with the private apt configuration
 # and add them to this local repository (repo-proxmox/). Only the named packages
 # are downloaded (not their dependencies); apt checks them against the signed
-# index.
+# index. Each in Proxmox's newest version: the pins prefer the local
+# repositories, so the candidate would stay the version fetched before.
 R=$(cd "$(dirname "$0")" && pwd); A=$R/proxmox-fetch
 L=$(dirname "$R")/build-logs/proxmox-fetch.log
 $A/apt.sh update -q >>$L 2>&1
 cd $A/cache/archives
 for p in "$@"; do
-    $A/apt.sh download "$p" >>$L 2>&1 && echo "fetched $p" || echo "NOT fetchable: $p"
+    v=
+    for w in $(awk -v p="$p" '/^Package: / { q = ($2 == p) } q && /^Version: / { print $2 }' \
+                   $A/state/lists/*download.proxmox.com_*Packages | sort -u); do
+        [ -z "$v" ] || dpkg --compare-versions "$w" gt "$v" && v=$w
+    done
+    [ -n "$v" ] || { echo "NOT fetchable: $p (not in Proxmox's index)"; continue; }
+    $A/apt.sh download "$p=$v" >>$L 2>&1 && echo "fetched $p $v" || echo "NOT fetchable: $p $v"
 done
 names=$(cat $A/state/lists/*download.proxmox.com_*Packages | sed -n 's|^Filename: .*/||p' | sort -u)
 for f in $A/cache/archives/*.deb; do
@@ -444,6 +452,11 @@ Pin-Priority: 600
 
 # Proxmox's corosync needs kronosnet 1.32 or newer, Devuan has 1.31
 Package: libknet* libnozzle*
+Pin: origin download.proxmox.com
+Pin-Priority: 600
+
+# qemu-server needs Proxmox's swtpm 0.10.2 or newer, Devuan has 0.7.1
+Package: swtpm swtpm-* libtpms*
 Pin: origin download.proxmox.com
 Pin-Priority: 600
 
