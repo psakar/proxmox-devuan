@@ -378,14 +378,20 @@ step_pve-manager() { repo_build pve-manager BUILD_PARALLEL=1; }
 # A Proxmox package and the Proxmox packages it depends on, downloaded from
 # Proxmox's repository with the private apt configuration into repo/, as part
 # of the build's result. The names are resolved from Proxmox's current index,
-# so newer versions are picked up without changes here.
+# so newer versions are picked up without changes here. They're resolved
+# without the local repositories: those are pinned above Proxmox's, so the
+# candidates would stay the versions already in repo/ (e.g. restored from the
+# last release by the GitHub Actions workflow).
 # usage: fetch_proxmox <package> [<regex: dependencies to leave out>]
 fetch_proxmox() {
-    local root=$1 skip=${2:-} A=$P/proxmox-fetch dir=$BASE/build/$1 lists closure pkgs=() index p cand f n=0
-    local opts=(-o "Dir::Etc::SourceList=$A/etc/sources.list" -o "Dir::Etc::SourceParts=$A/empty"
+    local root=$1 skip=${2:-} A=$P/proxmox-fetch dir=$BASE/build/$1 lists closure pkgs=() index p cand f n=0 i
+    "$A/apt.sh" update -q >>"$LOG" 2>&1 || die "updating Proxmox's package lists failed, see $LOG"
+    rm -rf "$dir"; mkdir -p "$dir"
+    grep -v ' file:' "$A/etc/sources.list" > "$dir/sources.list"
+    local opts=(-o "Dir::Etc::SourceList=$dir/sources.list" -o "Dir::Etc::SourceParts=$A/empty"
                 -o "Dir::Etc::Preferences=$A/etc/preferences" -o "Dir::Etc::PreferencesParts=$A/empty"
                 -o "Dir::State::Lists=$A/state/lists" -o "Dir::Cache=$A/cache")
-    "$A/apt.sh" update -q >>"$LOG" 2>&1 || die "updating Proxmox's package lists failed, see $LOG"
+    declare -A versions=()
     lists=("$A"/state/lists/*download.proxmox.com_*Packages)
     [ -e "${lists[0]}" ] || die "no Proxmox package lists in $A/state/lists"
     # the dependency closure, limited to the packages whose candidate (with
@@ -401,15 +407,15 @@ fetch_proxmox() {
     for p in "${closure[@]}"; do
         cand=$(apt-cache "${opts[@]}" policy "$p" 2>/dev/null | sed -n 's/^ *Candidate: //p')
         [ -n "$skip" ] && [[ $p =~ ^($skip)$ ]] && continue
-        [ -n "${proxmox_versions["$p $cand"]:-}" ] && pkgs+=("$p")
+        [ -n "${proxmox_versions["$p $cand"]:-}" ] && { pkgs+=("$p"); versions[$p]=$cand; }
     done
     printf '%s\n' "${pkgs[@]}" | grep -qxF "$root" || die "$root not in Proxmox's index"
     # a kernel image is either signed or not (alternatives): only the signed
     # one, the unsigned is dropped where its -signed package is in the list
     mapfile -t pkgs < <(printf '%s\n' "${pkgs[@]}" | awk '{ p[NR] = $0; has[$0] = 1 }
         END { for (i = 1; i <= NR; i++) if (p[i] !~ /^proxmox-kernel-/ || !((p[i] "-signed") in has)) print p[i] }')
+    for i in "${!pkgs[@]}"; do pkgs[i]="${pkgs[i]}=${versions[${pkgs[i]}]}"; done
     echo "downloading ${pkgs[*]}" | tee -a "$LOG"
-    rm -rf "$dir"; mkdir -p "$dir"
     (cd "$dir" && "$A/apt.sh" download "${pkgs[@]}") </dev/null >>"$LOG" 2>&1 || die "downloading failed, see $LOG"
     # only Proxmox's files (by name in its index), as a safeguard;
     # read once: a pipe from sed into grep -q fails under pipefail when grep
