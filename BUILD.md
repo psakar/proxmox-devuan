@@ -33,8 +33,9 @@ tarball, with two more scripts (see "Building with GitHub Actions"):
 
 - `select-steps.sh` decides which `build.sh` steps an incremental build
   runs, and records what was built in `repo/SOURCES`.
-- `package-repo.sh` removes older package versions from `repo/`, signs it
-  (`Release`, `InRelease`, `Release.gpg`) and packs it.
+- `package-repo.sh` removes older package versions from `repo/` and, for a
+  release, the packages not built for Devuan, signs it (`Release`,
+  `InRelease`, `Release.gpg`) and packs it.
 
 Two more scripts check what Proxmox has released since the last build (see
 "Checking upstream releases"):
@@ -209,9 +210,9 @@ and its signature `.tar.gz.asc`.
 - **What gets built** (input `steps`):
   - `auto` (default): the steps whose source repositories' commits differ
     from the last release's `SOURCES`, that it doesn't list, or whose
-    recorded version isn't in the repository's `Packages`, plus
-    `proxmox-default-kernel` and `proxmox-secure-boot-support` (Proxmox's
-    current kernel and Secure Boot packages, downloaded). Which
+    recorded version isn't in the repository's `Packages`; not
+    `proxmox-default-kernel` and `proxmox-secure-boot-support`, which only
+    download from Proxmox. Which
     repositories a step is built from: `build.sh --sources <step>` (e.g.
     libpve-rs-perl also from proxmox-rs, proxmox-ve-rs and perlmod).
     Clones follow the forks' feature branch or Proxmox's master, except
@@ -230,11 +231,14 @@ and its signature `.tar.gz.asc`.
   `ci/build-in-container.sh` in `devuan/devuan:excalibur`: a build user with
   passwordless sudo (like the build machine's `test`), `prepare-build.sh`,
   `select-steps.sh`, `build.sh --only <steps>`, the record in
-  `repo/SOURCES`, and `package-repo.sh --prune`. The `release` job, in the
+  `repo/SOURCES`, and `package-repo.sh --devuan-only --prune`. The release
+  holds only the packages built for Devuan (`+devuan<N>` versions): Proxmox's
+  unchanged packages, e.g. its kernel, pve-firmware and the Secure Boot
+  chain, come from Proxmox's repository (`INSTALL.md`). The `release` job, in the
   GitHub environment `release` (the only one with the signing key), signs
   and packs `repo/` and creates the release, with the built steps and
   `SOURCES` in its notes. Neither the packages nor `SOURCES` changed (e.g.
-  `auto` without changes and no newer kernel): no release. A rebuild with
+  `auto` without changes): no release. A rebuild with
   identical packages but new commits still makes one, for its `SOURCES`.
   Build logs: the run's artifact
   `build-logs`.
@@ -286,7 +290,9 @@ packages.
 
 ```
 ./select-steps.sh record repo/SOURCES $(./build.sh --list)
-./package-repo.sh --prune --sign '<subkey fingerprint>!' --tarball dist/proxmox-devuan-repo-<date>.tar.gz
+# a copy: --devuan-only removes Proxmox's packages (the kernel) the build machine keeps
+rm -rf build/release-repo && cp -a repo build/release-repo
+./package-repo.sh --devuan-only --prune --sign '<subkey fingerprint>!' --tarball dist/proxmox-devuan-repo-<date>.tar.gz build/release-repo
 gh release create <date> dist/* --repo psakar/proxmox-devuan --title <date> --notes 'Built on the build machine'
 ```
 

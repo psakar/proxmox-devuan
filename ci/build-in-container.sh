@@ -8,7 +8,9 @@
 #     restored) and fetch Proxmox's unchanged packages
 #   - select-steps.sh: what to build (STEPS: auto, all, or step names)
 #   - build.sh --only <steps>, then record them in repo/SOURCES
-#   - package-repo.sh --prune: drop the older package versions
+#   - package-repo.sh --devuan-only --prune: drop the packages not built for
+#     Devuan (Proxmox's, e.g. its kernel, installed from Proxmox's repository)
+#     and the older package versions
 # Results for the workflow in build/ci/: steps (built, comma-separated) and
 # changed (true if the repository's index or manifest changed).
 #
@@ -60,12 +62,13 @@ echo "$steps" > build/ci/steps
 if [ -n "$steps" ]; then
     echo "=== building: $steps"
     ./build.sh --only "$steps"
-    ./select-steps.sh record repo/SOURCES ${steps//,/ }
 else
     echo "=== nothing to build"
 fi
+# also drops the lines of the steps only downloading from Proxmox
+./select-steps.sh record repo/SOURCES ${steps//,/ }
 
-./package-repo.sh --prune repo
+./package-repo.sh --devuan-only --prune repo
 
 [ "$(index)" != "$before" ] && echo true > build/ci/changed || echo false > build/ci/changed
 echo "=== repository changed: $(cat build/ci/changed)"

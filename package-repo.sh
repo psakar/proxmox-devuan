@@ -2,7 +2,12 @@
 # Prepare the local repository repo/ for publishing (the GitHub Actions
 # workflow .github/workflows/build-repo.yml, also usable by hand).
 #
-# Usage: package-repo.sh [--prune] [--sign <key>] [--tarball <file>] [<repo dir>]
+# Usage: package-repo.sh [--devuan-only] [--prune] [--sign <key>] [--tarball <file>] [<repo dir>]
+#   --devuan-only     remove the packages not built for Devuan (versions without
+#                     '+devuan'): Proxmox's unchanged ones build.sh downloads
+#                     into repo/ (its kernel, pve-firmware, the Secure Boot
+#                     chain), which machines install from Proxmox's repository;
+#                     regenerate the index (Packages)
 #   --prune           remove all but the newest version of each package, and
 #                     regenerate the index (Packages)
 #   --sign <key>      write Release (the indexes' checksums) and sign it with
@@ -16,9 +21,10 @@
 
 set -euo pipefail
 
-PRUNE=0 KEY='' TARBALL='' DIR=repo
+DEVUAN_ONLY=0 PRUNE=0 KEY='' TARBALL='' DIR=repo
 while [ $# -gt 0 ]; do
     case "$1" in
+        --devuan-only) DEVUAN_ONLY=1 ;;
         --prune) PRUNE=1 ;;
         --sign) KEY=$2; shift ;;
         --tarball) TARBALL=$2; shift ;;
@@ -37,6 +43,19 @@ DIR=$(cd "$DIR" && pwd) || die "no repository directory $DIR"
 write_index() {
     (cd "$DIR" && apt-ftparchive packages . \
         | awk -v RS= -v ORS='\n\n' '$0 ~ /\nFilename: \.\/[^\/\n]+\n/' > Packages && gzip -9kf Packages)
+}
+
+devuan_only() {
+    local f n=0
+    for f in "$DIR"/*.deb; do
+        [ -e "$f" ] || continue
+        if [[ $(dpkg-deb -f "$f" Version) != *+devuan* ]]; then
+            echo "removed $(basename "$f") (not built for Devuan)"
+            rm -f "$f"; n=$((n + 1))
+        fi
+    done
+    echo "removed $n packages not built for Devuan"
+    write_index
 }
 
 prune() {
@@ -95,6 +114,7 @@ pack() {
     fi
 }
 
+[ $DEVUAN_ONLY = 1 ] && devuan_only
 [ $PRUNE = 1 ] && prune
 [ -n "$KEY" ] && sign
 [ -n "$TARBALL" ] && pack

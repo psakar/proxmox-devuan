@@ -8,16 +8,18 @@
 #   select-steps.sh select <what> [<manifest>]
 #     <what>: 'auto'  the steps whose source repositories' commits differ from
 #                     the manifest's, that it doesn't list, or whose recorded
-#                     version isn't in the repository (repo/Packages), plus
-#                     the steps only downloading from Proxmox (its current
-#                     kernel and Secure Boot packages)
+#                     version isn't in the repository (repo/Packages); not
+#                     the steps only downloading from Proxmox (its kernel
+#                     and Secure Boot packages): the release holds only the
+#                     packages built for Devuan (package-repo.sh --devuan-only)
 #             'all'   all steps
 #             or step names, comma- or space-separated
 #     Prints the steps comma-separated in build order (for build.sh --only),
 #     nothing if there's nothing to build; warnings on stderr.
 #   select-steps.sh record <manifest> <step>...
 #     Write the given (built) steps' versions and commits into the manifest,
-#     keeping the other steps' lines.
+#     keeping the other steps' lines, except the steps only downloading from
+#     Proxmox (not in the release).
 #
 # Manifest, one line per step, in build order:
 #   <step> <version> [<repository>=<commit>...]
@@ -82,10 +84,8 @@ select_steps() { # <what> [<manifest>]
         all) selected=("${STEPS[@]}") ;;
         auto)
             for step in "${STEPS[@]}"; do
-                if [ -z "$(sources "$step")" ]; then
-                    selected+=("$step")   # downloaded from Proxmox: always fetched
-                    continue
-                fi
+                # downloaded from Proxmox: not in the release
+                [ -z "$(sources "$step")" ] && continue
                 line=$(manifest_line "$manifest" "$step")
                 if [ -z "$line" ]; then
                     echo "$step: not in the manifest" >&2
@@ -133,6 +133,8 @@ record_steps() { # <manifest> <step>...
     local manifest=$1 step tmp; shift
     tmp=$(mktemp)
     for step in "${STEPS[@]}"; do
+        # downloaded from Proxmox: not in the release
+        [ -z "$(sources "$step")" ] && continue
         if printf '%s\n' "$@" | grep -qxF "$step"; then
             echo "$step $(step_version "$step") $(step_commits "$step")" | sed 's/ *$//'
         else
